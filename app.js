@@ -3,12 +3,12 @@
      定数
      ============================================================ */
   const TAGS = [
-    {id:'food', label:'ごはん', emoji:'🍜'},
-    {id:'cafe', label:'カフェ', emoji:'☕'},
-    {id:'sight', label:'観光', emoji:'🏞'},
-    {id:'shop', label:'買い物', emoji:'🛍'},
-    {id:'stay', label:'宿', emoji:'🏨'},
-    {id:'other', label:'その他', emoji:'✨'},
+    {id:'food', label:'ごはん', emoji:'🍜', color:'#c9622d'},
+    {id:'cafe', label:'カフェ', emoji:'☕', color:'#8a5a3c'},
+    {id:'sight', label:'観光', emoji:'🏞', color:'#3c6e52'},
+    {id:'shop', label:'買い物', emoji:'🛍', color:'#a2557c'},
+    {id:'stay', label:'宿', emoji:'🏨', color:'#3a5a78'},
+    {id:'other', label:'その他', emoji:'✨', color:'#5a6377'},
   ];
   const LIST_COLORS = ['#3c6e52','#c08e2a','#a24936','#3a5a78','#6b5b95','#5a6377'];
   const LIST_EMOJIS = ['📔','✈️','🗺','🎒','🍽','🌊','🏔','🎡'];
@@ -31,6 +31,7 @@
   let pickedTag = 'other';
   let editingPlaceId = null;
   let pinPickLatLng = null; // {lat,lng} 追加モーダルの地図でタップした座標
+  let pendingFocusPlaceId = null; // 追加直後に位置が確定し次第フォーカスする場所のID
 
   let listModalOpen = false;
   let pickedColor = LIST_COLORS[0];
@@ -321,6 +322,15 @@
         gmap.fitBounds(bounds, 60);
       }
     }
+
+    if(pendingFocusPlaceId){
+      const pending = places.find(x=>x.id===pendingFocusPlaceId);
+      if(pending && typeof pending.lat === 'number'){
+        const id = pendingFocusPlaceId;
+        pendingFocusPlaceId = null;
+        focusPlaceOnMap(id);
+      }
+    }
   }
 
   function geocodeAndAttach(p){
@@ -333,7 +343,12 @@
         // 現在も同じノートを表示中なら地図に反映
         if(view==='detail' && currentListId===p.listId && gmap){
           addMarkerForPlace(p);
-          gmap.setCenter({lat:p.lat,lng:p.lng});
+          if(pendingFocusPlaceId === p.id){
+            pendingFocusPlaceId = null;
+            focusPlaceOnMap(p.id);
+          } else {
+            gmap.setCenter({lat:p.lat,lng:p.lng});
+          }
         }
       }
     });
@@ -346,6 +361,14 @@
       map: gmap,
       title: p.name,
       opacity: p.visited ? 0.55 : 1,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 15,
+        fillColor: '#ffffff',
+        fillOpacity: 1,
+        strokeColor: meta.color,
+        strokeWeight: 3
+      },
       label: { text: meta.emoji, fontSize:'14px' }
     });
     marker.placeId = p.id;
@@ -455,6 +478,7 @@
     if(!p) return;
     editingPlaceId = p.id;
     pickedTag = p.tag;
+    activeTab = 'name';
     placeModalOpen = true;
     render();
   }
@@ -499,7 +523,7 @@
   function renderTagFilter(){
     return `<div class="tags-filter">
       <button class="chip ${filterTag===null?'active':''}" data-filter="">すべて</button>
-      ${TAGS.map(t=>`<button class="chip ${filterTag===t.id?'active':''}" data-filter="${t.id}">${t.emoji} ${t.label}</button>`).join('')}
+      ${TAGS.map(t=>`<button class="chip ${filterTag===t.id?'active':''}" data-filter="${t.id}" style="--chip-color:${t.color}">${t.emoji} ${t.label}</button>`).join('')}
     </div>`;
   }
 
@@ -528,7 +552,8 @@
   }
 
   function renderEditBody(p){
-    const tagOptions = `<div class="tagpick">${TAGS.map(t=>`<button type="button" class="chip tag-opt" data-tagopt="${t.id}">${t.emoji} ${t.label}</button>`).join('')}</div>`;
+    const tagOptions = `<div class="tagpick">${TAGS.map(t=>`<button type="button" class="chip tag-opt" data-tagopt="${t.id}" style="--chip-color:${t.color}">${t.emoji} ${t.label}</button>`).join('')}</div>`;
+    const locTab = activeTab==='link' ? 'link' : 'name';
     return `
       <label>場所の名前</label>
       <input type="text" id="f-name" value="${escapeHtml(p.name)}" placeholder="例）〇〇食堂">
@@ -536,12 +561,22 @@
       <textarea id="f-memo" placeholder="友達がおすすめしてた、誕生日に行きたい など">${escapeHtml(p.memo)}</textarea>
       <label>カテゴリ</label>
       ${tagOptions}
-      <div class="hint">地図上の位置は変更できません。位置を直したい場合は削除してから追加し直してください</div>
+      <label>地図上の位置を変更する場合</label>
+      <div class="tabs">
+        <div class="tab ${locTab==='name'?'active':''}" data-tab="name">名前・住所で変更</div>
+        <div class="tab ${locTab==='link'?'active':''}" data-tab="link">リンクで変更</div>
+      </div>
+      ${locTab==='link' ? `
+        <input type="text" id="f-link" placeholder="https://maps.google.com/...">
+      ` : `
+        <input type="text" id="f-query" placeholder="例）東京タワー / 渋谷区 / 東京都〇〇市">
+      `}
+      <div class="hint">空欄のままなら、今の位置は変わりません</div>
     `;
   }
 
   function renderTabBody(){
-    const tagOptions = `<div class="tagpick">${TAGS.map(t=>`<button type="button" class="chip tag-opt" data-tagopt="${t.id}">${t.emoji} ${t.label}</button>`).join('')}</div>`;
+    const tagOptions = `<div class="tagpick">${TAGS.map(t=>`<button type="button" class="chip tag-opt" data-tagopt="${t.id}" style="--chip-color:${t.color}">${t.emoji} ${t.label}</button>`).join('')}</div>`;
     if(activeTab==='name'){
       return `
         <label>場所の名前</label>
@@ -866,6 +901,22 @@
         p.name = name;
         p.memo = memo;
         p.tag = pickedTag;
+
+        if(activeTab==='link'){
+          const url = (document.getElementById('f-link')||{}).value?.trim();
+          if(url){
+            p.link = url;
+            p.query = extractNameFromUrl(url) || '';
+            p.lat = undefined; p.lng = undefined; // 位置を再取得
+          }
+        } else {
+          const searchText = (document.getElementById('f-query')||{}).value?.trim() || '';
+          if(searchText){
+            p.query = searchText;
+            p.link = searchLink(searchText, '');
+            p.lat = undefined; p.lng = undefined; // 位置を再取得
+          }
+        }
       }
       persistPlaces();
       placeModalOpen = false;
@@ -908,6 +959,7 @@
     persistPlaces();
     placeModalOpen = false;
     pinPickLatLng = null;
+    pendingFocusPlaceId = newPlace.id;
     render();
   }
 
