@@ -286,6 +286,12 @@
     if(mapDiv.parentElement !== wrap){ wrap.appendChild(mapDiv); }
     if(!gmap){
       gmap = new google.maps.Map(mapDiv, { center:{lat:35.681236,lng:139.767125}, zoom:5, streetViewControl:false, mapTypeControl:false, fullscreenControl:false, gestureHandling:'greedy' });
+      gmap.addListener('click', (e)=>{
+        if(e.placeId){
+          e.stop(); // Google純正のPOI情報ウィンドウを抑制
+          openAddPlaceFromPOI(e.placeId, e.latLng);
+        }
+      });
     } else {
       google.maps.event.trigger(gmap, 'resize');
     }
@@ -295,6 +301,27 @@
   function clearMarkers(){
     markers.forEach(m=>m.setMap(null));
     markers = [];
+  }
+
+  // メイン地図上の実際のお店・施設（POI）をタップした時に、その場所を「地図でピン」タブの状態で追加する
+  function openAddPlaceFromPOI(placeId, latLng){
+    pinPickLatLng = { lat: latLng.lat(), lng: latLng.lng() };
+    placeModalOpen = true;
+    activeTab = 'pin';
+    pickedTag = 'other';
+    editingPlaceId = null;
+    render();
+
+    if(!(google.maps.places && google.maps.places.PlacesService)) return;
+    const service = new google.maps.places.PlacesService(gmap);
+    service.getDetails({ placeId, fields: ['name'] }, (result, status)=>{
+      const nm = (status === google.maps.places.PlacesServiceStatus.OK && result) ? result.name : null;
+      if(!nm) return;
+      const nameInput = document.getElementById('f-name');
+      if(nameInput){ nameInput.value = nm; nameInput.dataset.touched = '1'; }
+      const hint = document.getElementById('pinPickHint');
+      if(hint) hint.textContent = `📍 ${nm} を選択しました`;
+    });
   }
 
   function refreshMarkers(){
@@ -628,6 +655,30 @@
 
   let pinPickMap = null;
   let pinPickMarker = null;
+
+  // 地図上の実際のお店・施設（POI）をタップした時に、その場所の名前を取得してピン留めする
+  function applyPinFromPlaceId(placeId, latLng){
+    pinPickLatLng = { lat: latLng.lat(), lng: latLng.lng() };
+    if(pinPickMarker){ pinPickMarker.setPosition(pinPickLatLng); }
+    else { pinPickMarker = new google.maps.Marker({ position: pinPickLatLng, map: pinPickMap }); }
+
+    const hint = document.getElementById('pinPickHint');
+    if(hint) hint.textContent = '📍 お店の情報を取得中…';
+
+    if(!(google.maps.places && google.maps.places.PlacesService)){
+      if(hint) hint.textContent = '📍 位置を設定しました';
+      return;
+    }
+    const service = new google.maps.places.PlacesService(pinPickMap);
+    service.getDetails({ placeId, fields: ['name'] }, (result, status)=>{
+      const nm = (status === google.maps.places.PlacesServiceStatus.OK && result) ? result.name : null;
+      const hintEl = document.getElementById('pinPickHint');
+      if(hintEl) hintEl.textContent = nm ? `📍 ${nm} を選択しました` : '📍 位置を設定しました';
+      const nameInput = document.getElementById('f-name');
+      if(nm && nameInput && !nameInput.dataset.touched){ nameInput.value = nm; }
+    });
+  }
+
   function mountPinPickMap(){
     const el = document.getElementById('pinPickMap');
     if(!el || !mapsReady()) return;
@@ -640,6 +691,11 @@
       pinPickMarker = new google.maps.Marker({ position: pinPickLatLng, map: pinPickMap });
     }
     pinPickMap.addListener('click', (e)=>{
+      if(e.placeId){
+        e.stop(); // Google純正のPOI情報ウィンドウを抑制
+        applyPinFromPlaceId(e.placeId, e.latLng);
+        return;
+      }
       pinPickLatLng = { lat: e.latLng.lat(), lng: e.latLng.lng() };
       if(pinPickMarker){ pinPickMarker.setPosition(pinPickLatLng); }
       else { pinPickMarker = new google.maps.Marker({ position: pinPickLatLng, map: pinPickMap }); }
@@ -976,7 +1032,7 @@
     load();
   } else {
     const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=__initApp&loading=async`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=__initApp&loading=async`;
     s.async = true; s.defer = true;
     document.head.appendChild(s);
   }
