@@ -397,11 +397,11 @@
       opacity: p.visited ? 0.55 : 1,
       icon: {
         path: google.maps.SymbolPath.CIRCLE,
-        scale: 15,
+        scale: 16,
         fillColor: '#ffffff',
         fillOpacity: 1,
         strokeColor: meta.color,
-        strokeWeight: 3
+        strokeWeight: 7
       },
       label: { text: meta.emoji, fontSize:'14px' }
     });
