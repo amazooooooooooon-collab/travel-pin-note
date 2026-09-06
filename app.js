@@ -68,6 +68,7 @@
   const DRIVE_BACKUP_FILENAME = '行き先帖-backup.json';
   let driveTokenClient = null;
   let driveAccessToken = null;
+  let driveAuthCallback = null; // ログイン完了時に呼ぶ、直近にリクエストされた処理
 
   function driveOAuthReady(){
     return !!(GOOGLE_OAUTH_CLIENT_ID && GOOGLE_OAUTH_CLIENT_ID !== 'YOUR_OAUTH_CLIENT_ID_HERE');
@@ -83,6 +84,10 @@
       return;
     }
     if(driveAccessToken){ cb(); return; }
+    // トークンクライアントは使い回すが、ログイン後に呼ぶ処理は毎回この時点の cb に差し替える
+    // （initTokenClient の callback に直接 cb を焼き込むと、2回目以降のクリックで
+    //   最初にクリックしたボタンの処理が呼ばれてしまう不具合になるため）
+    driveAuthCallback = cb;
     if(!driveTokenClient){
       driveTokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_OAUTH_CLIENT_ID,
@@ -90,7 +95,9 @@
         callback: (resp)=>{
           if(resp.error){ alert('Googleログインに失敗しました'); return; }
           driveAccessToken = resp.access_token;
-          cb();
+          const fn = driveAuthCallback;
+          driveAuthCallback = null;
+          if(fn) fn();
         }
       });
     }
