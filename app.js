@@ -758,7 +758,10 @@
   }
 
   function renderFooter(){
-    return `<footer class="app-footer">© ${new Date().getFullYear()} 行き先帖</footer>`;
+    return `<footer class="app-footer">
+      <a href="https://claude.ai/code/artifact/f6dde662-dee7-4038-81bb-050a4c612e7b" target="_blank" rel="noopener">使い方</a>
+      <span class="app-footer-sep">・</span>© ${new Date().getFullYear()} 行き先帖
+    </footer>`;
   }
 
   /* ============================================================
