@@ -8,7 +8,7 @@
     {id:'sight', label:'観光', emoji:'🏞', color:'#3c6e52'},
     {id:'shop', label:'買い物', emoji:'🛍', color:'#a2557c'},
     {id:'stay', label:'宿', emoji:'🏨', color:'#3a5a78'},
-    {id:'other', label:'その他', emoji:'✨', color:'#5a6377'},
+    {id:'other', label:'その他', emoji:'✨', color:'#7a7267'},
   ];
   const LIST_COLORS = ['#3c6e52','#c08e2a','#a24936','#3a5a78','#6b5b95','#5a6377'];
   const LIST_EMOJIS = ['📔','✈️','🗺','🎒','🍽','🌊','🏔','🎡'];
