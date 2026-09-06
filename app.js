@@ -403,7 +403,7 @@
         strokeColor: meta.color,
         strokeWeight: 7
       },
-      label: { text: meta.emoji, fontSize:'14px' }
+      label: { text: meta.emoji, fontSize:'10px' }
     });
     marker.placeId = p.id;
     marker.addListener('click', ()=> selectPin(p.id));
